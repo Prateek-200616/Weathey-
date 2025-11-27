@@ -1,0 +1,383 @@
+import React, { useState, useEffect, useCallback } from 'react';
+// Assuming lucide-react is available in the environment for icons
+import { Cloud, Sunrise, Sunset, Droplet, Wind, Thermometer, MapPin, Gauge } from 'lucide-react';
+
+// --- MOCK DATA SOURCE (Replaced API calls) ---
+const MOCK_WEATHER_DATA = [
+    {
+        cityName: 'London',
+        country: 'GB',
+        temperatureC: '12.5',
+        temperatureF: '54.5',
+        condition: 'Clouds',
+        description: 'overcast clouds',
+        humidity: 85,
+        pressure: 1012,
+        windSpeed: '15.0', // km/h
+        sunrise: '07:30 AM',
+        sunset: '04:15 PM',
+        timestamp: new Date().toLocaleTimeString(),
+    },
+    {
+        cityName: 'New York',
+        country: 'US',
+        temperatureC: '5.2',
+        temperatureF: '41.4',
+        condition: 'Clear',
+        description: 'clear sky',
+        humidity: 60,
+        pressure: 1025,
+        windSpeed: '9.5', // km/h
+        sunrise: '06:50 AM',
+        sunset: '05:05 PM',
+        timestamp: new Date().toLocaleTimeString(),
+    },
+    {
+        cityName: 'Tokyo',
+        country: 'JP',
+        temperatureC: '18.9',
+        temperatureF: '66.0',
+        condition: 'Rain',
+        description: 'light rain',
+        humidity: 78,
+        pressure: 1005,
+        windSpeed: '5.4', // km/h
+        sunrise: '06:00 AM',
+        sunset: '04:40 PM',
+        timestamp: new Date().toLocaleTimeString(),
+    },
+    {
+        cityName: 'Paris',
+        country: 'FR',
+        temperatureC: '8.1',
+        temperatureF: '46.6',
+        condition: 'Mist',
+        description: 'foggy weather',
+        humidity: 91,
+        pressure: 1018,
+        windSpeed: '3.8', // km/h
+        sunrise: '07:45 AM',
+        sunset: '04:30 PM',
+        timestamp: new Date().toLocaleTimeString(),
+    },
+    {
+        cityName: 'Sydney',
+        country: 'AU',
+        temperatureC: '24.0',
+        temperatureF: '75.2',
+        condition: 'Clear',
+        description: 'sunny and warm',
+        humidity: 50,
+        pressure: 1010,
+        windSpeed: '12.1', // km/h
+        sunrise: '05:30 AM',
+        sunset: '07:10 PM',
+        timestamp: new Date().toLocaleTimeString(),
+    },
+    {
+        cityName: 'Delhi',
+        country: 'IN',
+        temperatureC: '28.5',
+        temperatureF: '83.3',
+        condition: 'Haze',
+        description: 'moderate haze',
+        humidity: 45,
+        pressure: 1008,
+        windSpeed: '7.2', // km/h
+        sunrise: '06:30 AM',
+        sunset: '05:45 PM',
+        timestamp: new Date().toLocaleTimeString(),
+    },
+    {
+        cityName: 'Berlin',
+        country: 'DE',
+        temperatureC: '3.0',
+        temperatureF: '37.4',
+        condition: 'Drizzle',
+        description: 'light intensity drizzle',
+        humidity: 95,
+        pressure: 1030,
+        windSpeed: '10.8', // km/h
+        sunrise: '08:00 AM',
+        sunset: '04:00 PM',
+        timestamp: new Date().toLocaleTimeString(),
+    },
+    // --- Added Mock Data for Mumbai (Fix for the error) ---
+    {
+        cityName: 'Mumbai',
+        country: 'IN',
+        temperatureC: '31.0',
+        temperatureF: '87.8',
+        condition: 'Clear',
+        description: 'tropical clear sky',
+        humidity: 65,
+        pressure: 1009,
+        windSpeed: '18.0', // km/h
+        sunrise: '06:45 AM',
+        sunset: '06:05 PM',
+        timestamp: new Date().toLocaleTimeString(),
+    },
+    // --- Generic Mock Data for unlisted cities ---
+    {
+        cityName: '__GENERIC__', 
+        country: 'ZZ',
+        temperatureC: '15.0',
+        temperatureF: '59.0',
+        condition: 'Clouds',
+        description: 'simulated weather data',
+        humidity: 70,
+        pressure: 1015,
+        windSpeed: '10.0', // km/h
+        sunrise: '06:00 AM',
+        sunset: '06:00 PM',
+        timestamp: new Date().toLocaleTimeString(),
+    },
+];
+
+// --- Helper Functions (Simplified as API logic is removed) ---
+
+// This function is now only used to map the initial cities to mock data
+const getMockDataForCity = (cityName) => {
+    // Find mock data for the city
+    const data = MOCK_WEATHER_DATA.find(d => d.cityName.toLowerCase() === cityName.toLowerCase());
+    
+    if (data) {
+        // Return a fresh copy with updated timestamp and randomized temp
+        const tempF = ((parseFloat(data.temperatureC) + (Math.random() * 0.5 - 0.25)) * 9/5 + 32).toFixed(1);
+
+        return { 
+            ...data, 
+            timestamp: new Date().toLocaleTimeString(),
+            // Simulate realistic variation on refresh
+            temperatureC: (parseFloat(data.temperatureC) + (Math.random() * 0.5 - 0.25)).toFixed(1),
+            temperatureF: tempF,
+        };
+    }
+    
+    // Fallback: If city not found, use the generic mock data instead of returning an error object
+    const genericData = MOCK_WEATHER_DATA.find(d => d.cityName === '__GENERIC__');
+    
+    if (genericData) {
+        return {
+            ...genericData,
+            cityName: cityName, // Use the requested city name
+            description: `Simulated: ${genericData.description}`,
+            timestamp: new Date().toLocaleTimeString(),
+        };
+    }
+
+    // Final fallback to error object if even generic data is missing
+    return { 
+        cityName: cityName, 
+        error: true, 
+        country: 'N/A', 
+        temperatureC: 'N/A', 
+        temperatureF: 'N/A',
+        condition: 'Unknown',
+        description: 'No mock data available',
+        humidity: 'N/A',
+        pressure: 'N/A',
+        windSpeed: 'N/A',
+        sunrise: 'N/A',
+        sunset: 'N/A',
+        timestamp: new Date().toLocaleTimeString(),
+    };
+};
+
+// --- Custom Components ---
+
+const WeatherCard = ({ data }) => {
+  // If we couldn't find mock data, show failure state
+  if (!data || data.error) return (
+    <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100 transition duration-300 transform hover:scale-[1.02] col-span-1 min-h-[350px] flex items-center justify-center">
+        <p className="text-gray-500 font-semibold">Failed to load simulated weather for {data?.cityName}.</p>
+    </div>
+  );
+
+  const IconMap = {
+    'Clouds': <Cloud className="w-16 h-16 text-indigo-500" />,
+    'Clear': <Sunrise className="w-16 h-16 text-yellow-500" />,
+    'Rain': <Droplet className="w-16 h-16 text-blue-500" />,
+    'Drizzle': <Droplet className="w-16 h-16 text-blue-400" />,
+    'Thunderstorm': <Cloud className="w-16 h-16 text-gray-700" />,
+    'Snow': <Cloud className="w-16 h-16 text-cyan-200" />,
+    'Mist': <Cloud className="w-16 h-16 text-gray-400" />,
+    'Haze': <Cloud className="w-16 h-16 text-gray-400" />,
+    default: <Thermometer className="w-16 h-16 text-gray-400" />,
+  };
+
+  const currentIcon = IconMap[data.condition] || IconMap.default;
+
+  return (
+    <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100 transition duration-300 transform hover:scale-[1.02] col-span-1">
+      
+      {/* City and Condition */}
+      <div className="flex justify-between items-start mb-4">
+        <div>
+          <h2 className="text-3xl font-bold text-gray-800 flex items-center">
+            <MapPin className="w-6 h-6 mr-2 text-indigo-600"/>
+            {data.cityName}
+          </h2>
+          <p className="text-sm text-gray-500 mt-1">{data.country} | Last updated: {data.timestamp}</p>
+        </div>
+        <div className="flex flex-col items-center">
+          {currentIcon}
+          <p className="text-sm font-medium text-gray-600 mt-1 capitalize">{data.description}</p>
+        </div>
+      </div>
+
+      {/* Temperature */}
+      <div className="mb-6 border-b pb-4 border-gray-100">
+        <p className="text-6xl font-extrabold text-indigo-700 leading-none">
+          {data.temperatureC}°C
+        </p>
+        <p className="text-xl font-semibold text-gray-500 mt-1">
+          {data.temperatureF}°F
+        </p>
+      </div>
+
+      {/* Details Grid */}
+      <div className="grid grid-cols-2 gap-4 text-gray-700">
+        <DetailItem icon={<Droplet className="w-4 h-4 text-blue-500"/>} label="Humidity" value={`${data.humidity}%`} />
+        <DetailItem icon={<Wind className="w-4 h-4 text-green-500"/>} label="Wind Speed" value={`${data.windSpeed} km/h`} />
+        <DetailItem icon={<Gauge className="w-4 h-4 text-yellow-600"/>} label="Pressure" value={`${data.pressure} hPa`} />
+        <DetailItem icon={<Sunrise className="w-4 h-4 text-orange-500"/>} label="Sunrise" value={data.sunrise} />
+        <DetailItem icon={<Sunset className="w-4 h-4 text-red-500"/>} label="Sunset" value={data.sunset} />
+      </div>
+    </div>
+  );
+};
+
+const DetailItem = ({ icon, label, value }) => (
+    <div className="flex items-center space-x-2">
+        {icon}
+        <span className="font-medium text-sm">{label}:</span>
+        <span className="text-sm font-bold">{value}</span>
+    </div>
+);
+
+
+// --- Main Application Component ---
+
+const App = () => {
+  // Use a smaller initial list to ensure mock data is displayed correctly
+  const initialCities = ['London', 'New York', 'Tokyo', 'Paris', 'Sydney', 'Delhi', 'Mumbai']; 
+  const [weatherData, setWeatherData] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [newCity, setNewCity] = useState('');
+  const [cities, setCities] = useState(initialCities);
+
+  // SIMULATED fetch function
+  const fetchWeatherForCity = useCallback(async (city) => {
+    // Simulate network delay
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    const mockData = getMockDataForCity(city);
+    
+    // Since getMockDataForCity now returns generic data instead of an error object, 
+    // we only log an error if the final fallback was hit (which should be rare).
+    if (mockData.error) {
+        console.error(`Final fallback: No mock data available for ${city}.`);
+        return mockData;
+    }
+
+    // We only log if it used the generic fallback for better debugging
+    if (mockData.description.includes("Simulated:")) {
+        console.warn(`City '${city}' not found in specific mock list. Using generic mock data.`);
+    }
+
+    return mockData;
+  }, []);
+
+  // SIMULATED fetch all function
+  const fetchAllWeather = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    
+    // For every city in the 'cities' array, get the corresponding mock data
+    try {
+        const results = await Promise.all(cities.map(city => fetchWeatherForCity(city)));
+        setWeatherData(results.filter(data => data !== null)); 
+    } catch (err) {
+      setError("Failed to simulate weather data refresh.");
+    } finally {
+      setLoading(false);
+    }
+  }, [cities, fetchWeatherForCity]);
+
+  // Initial load
+  useEffect(() => {
+    fetchAllWeather();
+  }, [fetchAllWeather]);
+
+  const handleAddCity = () => {
+    const city = newCity.trim();
+    if (city && !cities.map(c => c.toLowerCase()).includes(city.toLowerCase())) {
+      setCities([...cities, city]);
+      setNewCity('');
+    }
+  };
+
+  // Re-fetch data whenever the city list changes
+  useEffect(() => {
+      // Re-run fetchAllWeather to include the new city
+      fetchAllWeather();
+  }, [cities, fetchAllWeather]);
+
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-8 font-sans">
+      <header className="mb-8 p-4 bg-white shadow-md rounded-lg">
+        <h1 className="text-4xl font-extrabold text-indigo-700 text-center tracking-tight">
+          Simulated Weather Dashboard
+        </h1>
+        <p className="text-center text-gray-500 mt-2">
+            Displaying mock data. Real API key is no longer required.
+        </p>
+      </header>
+      
+      {/* City Input and Control */}
+      <div className="max-w-xl mx-auto mb-8 flex space-x-2">
+        <input
+          type="text"
+          value={newCity}
+          onChange={(e) => setNewCity(e.target.value)}
+          placeholder="Enter new city (e.g., Shanghai)"
+          className="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-150"
+        />
+        <button
+          onClick={handleAddCity}
+          className="px-4 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition duration-150 transform hover:scale-[1.05]"
+        >
+          Add City
+        </button>
+        <button
+          onClick={fetchAllWeather}
+          disabled={loading}
+          className="px-4 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition duration-150 transform hover:scale-[1.05] disabled:opacity-50"
+        >
+          {loading ? 'Simulating...' : 'Refresh Mock Data'}
+        </button>
+      </div>
+
+      {/* Error/Loading Status */}
+      {(loading || error) && (
+        <div className={`p-4 mb-6 rounded-lg max-w-4xl mx-auto text-center ${error ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+          {error || "Simulating data retrieval..."}
+        </div>
+      )}
+
+      {/* Weather Grid */}
+      <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {weatherData.map((data, index) => (
+          <WeatherCard key={index} data={data} />
+        ))}
+      </div>
+      
+      {/* API Key Warning removed */}
+    </div>
+  );
+};
+
+export default App;
