@@ -1,2 +1,1 @@
-# Weathey
-Weather Data Viewer app to show the info of the weather of the city that you have entered.
+Weathey is a weather data viewer application that allows users to search for a city and retrieve its weather information. It provides a simple way to access location-based weather data through an easy-to-use interface.
